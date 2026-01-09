@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import ImageUploader from "@/components/ImageUploader";
 import FoodAnalysis from "@/components/FoodAnalysis";
+import InstallPrompt from "@/components/InstallPrompt"; // Import new component
 import { Sparkles, ScanLine, Skull } from "lucide-react";
 
 export default function Home() {
@@ -57,6 +58,8 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center p-6 md:p-12 relative overflow-hidden">
 
+
+
       {/* Background Decor */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-[#0a0a0a] to-[#0a0a0a] pointer-events-none" />
 
@@ -109,8 +112,9 @@ export default function Home() {
 
       </div>
 
-      <footer className="mt-auto pt-12 text-gray-600 text-sm">
-        BY BRIGHT(GEMINI)
+      <footer className="mt-auto pt-12 text-gray-600 text-sm flex flex-col items-center gap-4">
+        <span>BY BRIGHT(GEMINI)</span>
+        <InstallPrompt />
       </footer>
     </main>
   );
