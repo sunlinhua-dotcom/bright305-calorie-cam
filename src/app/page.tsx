@@ -66,9 +66,12 @@ export default function Home() {
           <Sparkles className="w-4 h-4 text-[var(--primary)]" />
           <span className="text-sm font-medium tracking-wide text-gray-300">AI Powered Nutritionist</span>
         </div>
-        <h1 className="text-5xl md:text-7xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
-          BRIGHT305 <span className="text-[var(--primary)]">卡路里识别</span>
-        </h1>
+        <div className="mb-4">
+          <h1 className="text-2xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60 flex flex-wrap justify-center gap-x-2">
+            <span>BRIGHT305</span>
+            <span className="text-[var(--primary)]">卡路里识别</span>
+          </h1>
+        </div>
         <p className="max-w-md text-gray-400 text-lg">
           只需一张照片，立刻获取热量数据、营养成分与专属食谱。
         </p>

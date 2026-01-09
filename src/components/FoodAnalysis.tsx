@@ -41,30 +41,40 @@ export default function FoodAnalysis({ data, imageUrl, onReset }: FoodAnalysisPr
     return (
         <div className="w-full max-w-[800px] animate-fade-in flex flex-col gap-6">
 
-            {/* Header Card */}
-            <div className="glass-panel p-4 flex flex-row gap-4 items-center justify-between">
+            {/* Header Card Re-imagined */}
+            <div className="glass-panel overflow-hidden p-0">
+                {/* Full Width Image Area */}
+                <div className="relative w-full h-48 md:h-64 bg-black/20">
+                    <img src={imageUrl} alt="Food" className="w-full h-full object-cover" />
 
-                {/* Left: Thumbnail & Info */}
-                <div className="flex items-center gap-4 overflow-hidden">
-                    <div className="relative w-20 h-20 md:w-32 md:h-32 rounded-xl overflow-hidden border-2 border-white/10 shrink-0">
-                        <img src={imageUrl} alt="Food" className="w-full h-full object-cover" />
-                    </div>
-
-                    <div className="flex flex-col justify-center text-left">
-                        <h2 className="text-xl md:text-3xl font-bold text-white truncate max-w-[150px] md:max-w-none">{data.foodName}</h2>
-                        <div className="flex items-center gap-1 text-[var(--primary)]">
-                            <Flame className="w-4 h-4 md:w-6 md:h-6 fill-[var(--primary)]" />
-                            <span className="text-2xl md:text-4xl font-extrabold">{data.calories}</span>
-                            <span className="text-xs md:text-lg font-medium opacity-80 pt-1">kcal</span>
-                        </div>
+                    {/* Health Score Badge (Floating Top Right) */}
+                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-2">
+                        <span className="text-[10px] text-gray-300 uppercase tracking-wider">健康分</span>
+                        <span className={`text-lg font-bold ${data.healthScore >= 7 ? 'text-[var(--primary)]' : data.healthScore >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
+                            {data.healthScore}
+                        </span>
                     </div>
                 </div>
 
-                {/* Right: Health Score */}
-                <div className="flex flex-col items-center justify-center pl-2 border-l border-white/10 shrink-0 min-w-[60px]">
-                    <span className="text-[10px] md:text-xs text-gray-400 mb-0 md:mb-1">健康分</span>
-                    <div className={`text-2xl md:text-3xl font-bold ${data.healthScore >= 7 ? 'text-[var(--primary)]' : data.healthScore >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
-                        {data.healthScore}
+                {/* Content Area */}
+                <div className="p-6 flex flex-col gap-4">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="text-2xl md:text-4xl font-black text-white leading-tight">
+                            {data.foodName}
+                        </h2>
+                        {/* Calorie Pill */}
+                        <div
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full w-fit mt-2"
+                            style={{
+                                backgroundColor: 'var(--primary)',
+                                color: 'black',
+                                boxShadow: '0 0 20px rgba(157,255,0,0.2)'
+                            }}
+                        >
+                            <Flame className="w-4 h-4 fill-black stroke-black" />
+                            <span className="text-xl font-bold">{data.calories}</span>
+                            <span className="text-xs font-bold opacity-75 pt-[2px]">kcal</span>
+                        </div>
                     </div>
                 </div>
             </div>
