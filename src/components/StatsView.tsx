@@ -11,7 +11,7 @@ export default function StatsView({ history }: StatsViewProps) {
     // --- DATA PROCESSING ---
     const chartData = useMemo(() => {
         // 1. Init last 7 days map
-        const days = [];
+        const days: { key: string; label: string; calories: number; height: number; }[] = [];
         for (let i = 6; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
