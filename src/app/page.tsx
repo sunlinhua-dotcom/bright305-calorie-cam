@@ -101,8 +101,8 @@ export default function Home() {
     }
   };
 
-  // Helper to compress image for storage
-  const compressImage = (base64Str: string, maxWidth = 100, quality = 0.5): Promise<string> => {
+  // Helper to compress image for storage (Aggressively small for thumbnails)
+  const compressImage = (base64Str: string, maxWidth = 80, quality = 0.3): Promise<string> => {
     return new Promise((resolve) => {
       if (typeof window === 'undefined') {
         resolve(base64Str);
