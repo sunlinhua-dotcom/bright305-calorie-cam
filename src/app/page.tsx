@@ -140,24 +140,7 @@ export default function Home() {
         setAnalysis(null);
       } else {
         setAnalysis(data);
-
-        // Compress thumbnail for storage
-        const thumbnail = await compressImage(base64);
-
-        const newHistoryItem = {
-          id: Date.now().toString(),
-          foodName: data.foodName,
-          calories: data.calories,
-          macros: data.macros,
-          date: new Date().toLocaleDateString(),
-          imageUrl: thumbnail,
-        };
-        const updatedHistory = [newHistoryItem, ...history];
-        setHistory(updatedHistory);
-
-        // Use Safe Save Logic
-        const key = user ? `cico_history_${user.id}` : "cico_history";
-        safeSaveHistory(key, updatedHistory);
+        // NOTE: Auto-save removed. User must click Save.
       }
     } catch (err: any) {
       console.error(err);
@@ -165,6 +148,44 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleManualSave = async () => {
+    // 1. Check Login
+    if (!user) {
+      alert("请先登录再保存记录！");
+      setCurrentTab("profile");
+      return;
+    }
+
+    if (!analysis || !image) return;
+
+    // 2. Prepare Data
+    // Compress thumbnail for storage
+    const thumbnail = await compressImage(image);
+
+    const newHistoryItem = {
+      id: Date.now().toString(),
+      foodName: analysis.foodName,
+      calories: analysis.calories,
+      macros: analysis.macros,
+      date: new Date().toLocaleDateString(),
+      imageUrl: thumbnail,
+    };
+
+    // Use functional state update to ensure we have latest history
+    const currentHistory = [...history]; // This might be stale in closure, but sufficient for now as we re-read from state
+    const updatedHistory = [newHistoryItem, ...currentHistory];
+
+    setHistory(updatedHistory);
+
+    // 3. Save
+    const key = `cico_history_${user.id}`;
+    safeSaveHistory(key, updatedHistory);
+
+    // 4. Reset to Home
+    resetScanner();
+    alert("✅ 已保存到日志");
   };
 
 
@@ -179,7 +200,7 @@ export default function Home() {
 
     // If viewing analysis result
     if (image && analysis) {
-      return <FoodAnalysis data={analysis} imageUrl={image} onReset={resetScanner} />;
+      return <FoodAnalysis data={analysis} imageUrl={image} onReset={resetScanner} onSave={handleManualSave} />;
     }
 
     // Normal Home Dashboard

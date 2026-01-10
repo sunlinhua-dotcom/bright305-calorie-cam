@@ -53,7 +53,7 @@ export default function FoodAnalysis({ data, imageUrl, onReset, onSave }: FoodAn
 
             {/* 3. Bottom Actions (Fixed) */}
             <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 p-6 pb-8 flex gap-4">
-                <button className="flex-1 bg-[var(--primary)] text-white font-bold py-4 rounded-full shadow-lg shadow-green-200 active:scale-95 transition-transform flex items-center justify-center gap-2" onClick={onReset}>
+                <button className="flex-1 bg-[var(--primary)] text-white font-bold py-4 rounded-full shadow-lg shadow-green-200 active:scale-95 transition-transform flex items-center justify-center gap-2" onClick={onSave || onReset}>
                     <Save size={20} /> 保存到日志
                 </button>
                 <button onClick={onReset} className="flex-1 bg-gray-100 text-gray-600 font-bold py-4 rounded-full active:scale-95 transition-transform">
