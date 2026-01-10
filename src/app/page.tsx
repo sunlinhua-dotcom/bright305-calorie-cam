@@ -42,29 +42,29 @@ export default function Home() {
 
   // --- ACTIONS ---
   const handleLogin = (name: string) => {
-    // 1. Check if user exists in global user list (Simulated DB)
+    // 1. Generate a stable ID based on username (Simple Base64 of name to avoid weird chars)
+    // This ensures that "Alice" always gets the same ID, even if users_db is cleared but history remains.
+    const stableId = "user_" + btoa(encodeURIComponent(name));
+
+    // 2. Refresh User Session
+    const currentUser = {
+      id: stableId,
+      name: name,
+      joinedAt: new Date().toISOString()
+    };
+
+    // Update DB (optional now, mainly for list)
     const allUsersStr = localStorage.getItem("cico_users_db");
     let allUsers = allUsersStr ? JSON.parse(allUsersStr) : {};
+    allUsers[name] = currentUser;
+    localStorage.setItem("cico_users_db", JSON.stringify(allUsers));
 
-    let currentUser = allUsers[name];
-
-    if (!currentUser) {
-      // Register new user
-      currentUser = {
-        id: 'user_' + Date.now(),
-        name,
-        joinedAt: new Date().toISOString()
-      };
-      allUsers[name] = currentUser;
-      localStorage.setItem("cico_users_db", JSON.stringify(allUsers));
-    }
-
-    // 2. Set Session
+    // 3. Set Session
     setUser(currentUser);
     localStorage.setItem("cico_user", JSON.stringify(currentUser));
 
-    // 3. Load User's specific history
-    const userHistoryKey = `cico_history_${currentUser.id}`;
+    // 4. Load User's specific history
+    const userHistoryKey = `cico_history_${stableId}`;
     const savedHistory = localStorage.getItem(userHistoryKey);
     setHistory(savedHistory ? JSON.parse(savedHistory) : []);
   };
@@ -72,8 +72,7 @@ export default function Home() {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem("cico_user");
-
-    // Clear history from view (or load guest history)
+    // Clear history from view
     setHistory([]);
   };
 
@@ -81,6 +80,25 @@ export default function Home() {
     setHistory([]);
     const key = user ? `cico_history_${user.id}` : "cico_history";
     localStorage.removeItem(key);
+  };
+
+  // Helper: Try to save, if full, drop images
+  const safeSaveHistory = (key: string, historyData: any[]) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(historyData));
+    } catch (e) {
+      console.warn("Storage full, retrying without images...");
+      // Fallback: Remove images from ALL items to save space
+      const textOnlyHistory = historyData.map(item => ({
+        ...item,
+        imageUrl: "" // Drop image
+      }));
+      try {
+        localStorage.setItem(key, JSON.stringify(textOnlyHistory));
+      } catch (e2) {
+        alert("存储空间已极限，无法保存新记录。请清空旧数据。");
+      }
+    }
   };
 
   // Helper to compress image for storage
@@ -137,13 +155,9 @@ export default function Home() {
         const updatedHistory = [newHistoryItem, ...history];
         setHistory(updatedHistory);
 
-        try {
-          // Save to COMPARTMENTALIZED storage
-          const key = user ? `cico_history_${user.id}` : "cico_history";
-          localStorage.setItem(key, JSON.stringify(updatedHistory));
-        } catch (e) {
-          console.error("Storage full", e);
-        }
+        // Use Safe Save Logic
+        const key = user ? `cico_history_${user.id}` : "cico_history";
+        safeSaveHistory(key, updatedHistory);
       }
     } catch (err: any) {
       console.error(err);
@@ -152,6 +166,7 @@ export default function Home() {
       setLoading(false);
     }
   };
+
 
   const resetScanner = () => { setAnalysis(null); setImage(null); setError(null); };
 
