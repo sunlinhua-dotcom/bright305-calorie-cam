@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface StatsViewProps {
     history: any[];
@@ -10,127 +10,142 @@ export default function StatsView({ history }: StatsViewProps) {
 
     // --- DATA PROCESSING ---
     const chartData = useMemo(() => {
-        // 1. Init last 7 days map
-        const days: { key: string; label: string; calories: number; height: number; }[] = [];
-        for (let i = 6; i >= 0; i--) {
+        // 1. Determine range based on viewMode
+        const daysToShow = viewMode === "week" ? 7 : 30;
+
+        const days: { key: string; label: string; calories: number; height: number; fullDate: string }[] = [];
+
+        // Helper to normalize date to YYYY/M/D for comparison
+        // We try to match history item's date string loosely
+        const normalizeDate = (dateStr: string) => {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr; // Fallback to raw string if parse fails
+            return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+        };
+
+        for (let i = daysToShow - 1; i >= 0; i--) {
             const d = new Date();
             d.setDate(d.getDate() - i);
-            const key = d.toLocaleDateString(); // e.g., 2024/5/20
-            // Format for x-axis (e.g., "5/20" or "Mon")
+
+            // Key for matching
+            const key = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+
+            // Label for display
             const label = `${d.getMonth() + 1}/${d.getDate()}`;
-            days.push({ key, label, calories: 0, height: 0 });
+
+            days.push({ key, label, calories: 0, height: 0, fullDate: d.toDateString() });
         }
 
         // 2. Fill with history data
         history.forEach((item) => {
-            // Assuming item.date is user's locale string, logic matches simply by string
-            // In real app, better to work with ISO timestamps. 
-            // Here we assume item.date matches d.toLocaleDateString format for simplicity in MVP.
-            const dayStat = days.find(d => d.key === item.date);
+            // Normalize history item date
+            const itemKey = normalizeDate(item.date);
+
+            const dayStat = days.find(d => d.key === itemKey);
             if (dayStat) {
                 dayStat.calories += parseInt(item.calories) || 0;
             }
         });
 
-        // 3. Calculate Heights (Max = 2500 or Actual Max)
-        const maxCal = Math.max(...days.map(d => d.calories), 2000); // Baseline 2000
+        // 3. Calculate Heights (Fixed Scale Max = 2500 for consistency)
+        // If user eats > 2500, bar maxes out but tooltip shows real number
+        const MAX_Y = 2500;
         days.forEach(d => {
-            d.height = Math.round((d.calories / maxCal) * 100);
+            d.height = Math.min((d.calories / MAX_Y) * 100, 100);
         });
 
         return days;
-    }, [history]);
+    }, [history, viewMode]);
 
-    // Today's stats
-    const todayKey = new Date().toLocaleDateString();
-    const todayCalories = chartData.find(d => d.key === todayKey)?.calories || 0;
+    // Today's stats calculation
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+    const todayData = chartData.find(d => d.key === todayKey);
+    const todayCalories = todayData ? todayData.calories : 0;
     const targetCalories = 2000;
 
     return (
-        <div className="w-full max-w-md mx-auto pb-24 px-4 pt-6 animate-fade-in">
+        <div className="w-full max-w-md mx-auto pb-24 px-4 pt-6 animate-fade-in flex flex-col h-full">
             {/* Header & Toggle */}
-            <div className="flex flex-col items-center mb-8">
+            <div className="flex flex-col items-center mb-6 flex-shrink-0">
                 <h2 className="text-xl font-bold text-gray-800 mb-4">饮食统计</h2>
                 <div className="bg-gray-100 p-1 rounded-xl flex gap-1">
                     <button
-                        className={`px-6 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'week' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400'}`}
+                        className={`px-6 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'week' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400'}`}
                         onClick={() => setViewMode("week")}
                     >
                         近7日
                     </button>
                     <button
-                        className={`px-6 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400'}`}
+                        className={`px-6 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === 'month' ? 'bg-white shadow-sm text-green-600' : 'text-gray-400'}`}
                         onClick={() => setViewMode("month")}
                     >
-                        按月
+                        近30天
                     </button>
                 </div>
             </div>
 
-            {/* Date Picker (Mock) */}
-            <div className="flex items-center justify-between text-gray-500 mb-6 px-2">
-                <ChevronLeft size={20} />
-                <div className="flex items-center gap-2 font-medium text-gray-800">
-                    <Calendar size={16} />
-                    <span>2026年1月</span>
-                </div>
-                <ChevronRight size={20} />
-            </div>
-
             {/* Today's Card */}
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-8">
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 mb-6 flex-shrink-0">
                 <div className="flex justify-between items-end mb-2">
-                    <h3 className="text-gray-500 text-sm font-bold">今日总摄入</h3>
+                    <h3 className="text-gray-500 text-sm font-bold">今日摄入</h3>
                     <div className="text-right">
                         <span className="text-3xl font-black text-gray-900">{todayCalories}</span>
-                        <span className="text-xs text-gray-400 font-medium ml-1">千卡</span>
+                        <span className="text-xs text-gray-400 font-medium ml-1">/ {targetCalories}</span>
                     </div>
                 </div>
-
-                {/* Progress */}
                 <div className="h-4 w-full bg-gray-50 rounded-full overflow-hidden flex items-center px-1">
                     <div
-                        className="h-2 bg-[var(--primary)] rounded-full transition-all duration-1000"
+                        className={`h-2 rounded-full transition-all duration-1000 ${todayCalories > targetCalories ? 'bg-red-400' : 'bg-[var(--primary)]'}`}
                         style={{ width: `${Math.min((todayCalories / targetCalories) * 100, 100)}%` }}
                     />
-                </div>
-
-                <div className="flex justify-between mt-2 text-xs font-medium text-gray-400">
-                    <span>0</span>
-                    <span>目标: {targetCalories}</span>
                 </div>
             </div>
 
             {/* Chart Section */}
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-gray-800 font-bold mb-6">每日卡路里趋势</h3>
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0">
+                <h3 className="text-gray-800 font-bold mb-4 flex-shrink-0">卡路里趋势</h3>
 
-                <div className="h-48 flex items-end justify-between gap-2">
-                    {chartData.map((day, i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-2 group cursor-pointer">
-                            {/* Tooltip (Hover) */}
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -mt-8 bg-gray-900 text-white text-[10px] px-2 py-1 rounded mb-1 whitespace-nowrap z-10">
-                                {day.calories} kcal
+                <div className="flex-1 relative w-full h-full min-h-[200px]">
+                    {/* Y-Axis Grid Lines */}
+                    <div className="absolute inset-0 flex flex-col justify-between text-xs text-gray-300 pointer-events-none z-0">
+                        {[2500, 2000, 1500, 1000, 500, 0].map((val, i) => (
+                            <div key={i} className="w-full border-b border-gray-50 flex items-end h-full">
+                                <span className="mb-[-8px]">{val > 0 ? val : ''}</span>
                             </div>
+                        ))}
+                    </div>
 
-                            {/* The Bar */}
-                            <div className="w-full bg-gray-50 rounded-t-lg relative flex items-end overflow-hidden group-hover:bg-gray-100 transition-colors" style={{ height: '100%' }}>
-                                <div
-                                    className={`w-full rounded-t-lg transition-all duration-1000 ease-out ${day.key === todayKey ? 'bg-[var(--primary)]' : 'bg-[#81C784]'
-                                        }`}
-                                    style={{ height: `${day.height}%` }}
-                                />
-                            </div>
+                    {/* Bars Container */}
+                    <div className="absolute inset-0 pl-8 pt-2 pb-6 flex items-end overflow-x-auto no-scrollbar z-10" style={{ scrollBehavior: 'smooth' }}>
+                        <div className="flex items-end h-full gap-2 pr-4" style={{ minWidth: '100%' }}>
+                            {chartData.map((day, i) => (
+                                <div key={i} className="flex flex-col items-center gap-1 group relative" style={{ flex: viewMode === 'week' ? 1 : 'none', width: viewMode === 'month' ? '20px' : 'auto' }}>
 
-                            {/* Label */}
-                            <span className={`text-[10px] font-bold ${day.key === todayKey ? 'text-gray-900' : 'text-gray-400'}`}>
-                                {day.label}
-                            </span>
+                                    {/* Bar */}
+                                    <div className="w-full bg-gray-50 rounded-t md:rounded-t-lg relative flex items-end overflow-hidden group-hover:bg-gray-100 transition-colors h-full">
+                                        <div
+                                            className={`w-full rounded-t md:rounded-t-lg transition-all duration-500 ${day.key === todayKey ? 'bg-[var(--primary)]' : 'bg-[#81C784]'}`}
+                                            style={{ height: `${day.height}%` }}
+                                        />
+                                    </div>
+
+                                    {/* Label */}
+                                    <span className="text-[9px] font-bold text-gray-400 whitespace-nowrap">
+                                        {viewMode === 'month' && i % 3 !== 0 ? '' : day.label}
+                                    </span>
+
+                                    {/* Tooltip */}
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full mb-2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none left-1/2 transform -translate-x-1/2">
+                                        {day.calories} kcal
+                                        <div className="text-[8px] text-gray-400">{day.label}</div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    </div>
                 </div>
             </div>
-
         </div>
     );
 }
