@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BRIGHT305 食物卡路里识别",
-  description: "AI Powered Food Application for BRIGHT305",
+  title: "肥了么 | BRIGHT FOOD 卡路里计算",
+  description: "肥了么 - BRIGHT FOOD 智能卡路里计算器",
 };
 
 export default function RootLayout({

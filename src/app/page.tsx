@@ -172,7 +172,10 @@ export default function Home() {
       <div className="flex flex-col h-full px-6 pt-8 pb-32 animate-fade-in">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-xl font-bold text-gray-800">BRIGHT Food Scan</h1>
+          <div>
+            <h1 className="text-2xl font-black text-gray-800 tracking-tight">肥了么</h1>
+            <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">BRIGHT FOOD 卡路里计算</p>
+          </div>
           <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
             <UserIcon size={16} />
           </div>
