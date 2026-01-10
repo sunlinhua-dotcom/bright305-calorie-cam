@@ -1,87 +1,138 @@
+import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { NextResponse } from "next/server";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
+    const baseUrl = process.env.GEMINI_BASE_URL;
+
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "Gemini API Key not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Missing API Key" }, { status: 500 });
     }
 
     const { image, mimeType } = await req.json();
+    // Remove prefix if present, though OpenAI mostly wants full data URI or URL.
+    // For OpenAI inline image, it typically accepts `data:image/jpeg;base64,...`
+    // For Google SDK, it wants raw base64.
+    // Let's normalize variables.
+    const base64Raw = image.replace(/^data:image\/\w+;base64,/, "");
+    const mime = mimeType || "image/jpeg";
 
-    if (!image) {
-      return NextResponse.json(
-        { error: "No image provided" },
-        { status: 400 }
-      );
-    }
+    // Prompt configuration
+    const systemPrompt = `
+        你是一个专业的营养师和五星级大厨。请分析这张图片中的食物。
+        请务必以【严格的 JSON 格式】返回数据。不需要Markdown代码块。
 
-    // Convert base64 string to a format Gemini accepts
-    // Expected incoming image is base64 string without data:image/xxx;base64, prefix if possible, or handle it
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+        返回结构如下：
+        {
+            "foodName": "食物名称",
+            "calories": 0, // 整数
+            "macros": {
+                "protein": "0g",
+                "carbs": "0g",
+                "fat": "0g"
+            },
+            "healthScore": 0, // 1-10
+            "description": "30字以内的营养简评",
+            "recipe": {
+                "ingredients": ["食材1", "食材2"],
+                "steps": ["步骤1", "步骤2"],
+                "tips": "一句话烹饪技巧"
+            }
+        }
+        请确保使用简体中文。如果不是食物，返回 { "error": "NOT_FOOD" }。
+        `;
 
-    // 响应用户需求，切换至最新的 Gemini 3.0 Flash Preview 模型
-    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+    let jsonString = "";
 
-    const prompt = `
-    你是一个专业的营养师和五星级大厨。请分析这张图片中的食物。
-    请以严格的 JSON 格式返回以下信息（不要包裹在 markdown 代码块中，直接返回 JSON 对象）：
-    
-    1. foodName: 食物名称 (String)
-    2. calories: 估算的总热量 (Number, 单位 kcal)
-    3. macros: 宏观营养素对象
-       - protein: 蛋白质 (String, 如 "20g")
-       - carbs: 碳水化合物 (String)
-       - fat: 脂肪 (String)
-    4. healthScore: 健康评分 1-10 (Number)
-    5. description: wrap-up 简评，关于它的营养价值 (String, max 30 words)
-    6. recipe: 简单的制作做法/食谱对象
-       - ingredients: 主要食材列表 (Array of Strings)
-       - steps: 制作步骤 (Array of Strings)
-       - tips: 烹饪或健康小贴士 (String)
+    // Check if using Third-Party OpenAI Compatible Service (starts with sk-)
+    if (apiKey.startsWith("sk-")) {
+      console.log("Using OpenAI Compatible Client. BaseURL:", baseUrl || "Default");
 
-    请确保所有文本内容使用【简体中文】。如果图片中不是食物，请返回一个特定的错误 JSON: { "error": "NOT_FOOD" }。
-    `;
+      const openai = new OpenAI({
+        apiKey: apiKey,
+        baseURL: baseUrl || "https://api.openai.com/v1",
+        dangerouslyAllowBrowser: true
+      });
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: mimeType || "image/jpeg",
+      const response = await openai.chat.completions.create({
+        model: "gemini-3-flash-preview",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: systemPrompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mime};base64,${base64Raw}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 3000, // Increased to prevent truncation
+        temperature: 0.2, // Lower temperature for more deterministic JSON
+        // response_format: { type: "json_object" } // Some third-party proxies might not support this, so let's keeping it commented or rely on prompt. 
+        // Actually, for "gemini-3-flash-preview" via OpenAI proxy, explicit json mode is often safer if supported.
+        // Let's try without forcing the parameter first to avoid 400 errors from strict proxies, 
+        // relying on the stronger prompt and cleanup logic.
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) throw new Error("No content returned from API");
+      jsonString = content;
+
+    } else {
+      // Use Official Google SDK
+      console.log("Using Official Google SDK");
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+      const result = await model.generateContent([
+        systemPrompt,
+        {
+          inlineData: {
+            data: base64Raw,
+            mimeType: mime,
+          },
         },
-      },
-    ]);
-
-    const response = await result.response;
-    const text = response.text();
-
-    console.log("Gemini Raw Response:", text);
+      ]);
+      jsonString = result.response.text();
+    }
 
     // Clean up markdown code blocks if present
-    const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    try {
-      const data = JSON.parse(cleanText);
-      return NextResponse.json(data);
-    } catch (parseError) {
-      console.error("JSON Parse Error:", parseError);
-      return NextResponse.json(
-        { error: "Failed to parse AI response" },
-        { status: 500 }
-      );
+    // Attempt to extract purely the JSON object if there is extra text
+    const jsonMatch = jsonString.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonString = jsonMatch[0];
     }
 
-  } catch (error) {
-    console.error("API Error:", error);
+    console.log("Cleaned JSON String:", jsonString);
+
+    let data;
+    try {
+      data = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error("Standard JSON.parse failed. Trying relaxed parsing approach...");
+      // Fallback for sloppy JSON
+      try {
+        // eslint-disable-next-line no-new-func
+        data = new Function("return " + jsonString)();
+      } catch (evalError) {
+        throw new Error("Failed to parse AI response as JSON: " + jsonString.slice(0, 100) + "...");
+      }
+    }
+
+    return NextResponse.json(data);
+
+  } catch (error: any) {
+    console.error("Analysis Error Details:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: error.message || "Failed to analyze image" },
       { status: 500 }
     );
   }

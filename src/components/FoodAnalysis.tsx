@@ -1,147 +1,81 @@
 import React from "react";
-import { Flame, Activity, ChevronsRight, Info, Utensils } from "lucide-react";
-
-interface MacroProps {
-    label: string;
-    value: string;
-    color: string;
-}
-
-const MacroPill = ({ label, value, color }: MacroProps) => (
-    <div className="glass-panel p-4 flex flex-col items-center justify-center gap-2" style={{ borderColor: `${color}40`, background: `${color}10` }}>
-        <span className="text-gray-400 text-sm uppercase tracking-wider font-bold">{label}</span>
-        <span className="text-xl font-bold text-white">{value}</span>
-    </div>
-);
-
-interface AnalysisData {
-    foodName: string;
-    calories: number;
-    macros: {
-        protein: string;
-        carbs: string;
-        fat: string;
-    };
-    healthScore: number;
-    description: string;
-    recipe: {
-        ingredients: string[];
-        steps: string[];
-        tips: string;
-    };
-}
+import { ChevronLeft, Save, RefreshCw } from "lucide-react";
 
 interface FoodAnalysisProps {
-    data: AnalysisData;
+    data: any;
     imageUrl: string;
     onReset: () => void;
+    onSave?: () => void; // Optional save handler if we separate save from auto-save
 }
 
-export default function FoodAnalysis({ data, imageUrl, onReset }: FoodAnalysisProps) {
+export default function FoodAnalysis({ data, imageUrl, onReset, onSave }: FoodAnalysisProps) {
+    if (!data) return null;
+
     return (
-        <div className="w-full max-w-[800px] animate-fade-in flex flex-col gap-6">
+        <div className="flex flex-col h-full bg-white animate-fade-in relative">
 
-            {/* Header Card Re-imagined */}
-            <div className="glass-panel overflow-hidden p-0">
-                {/* Full Width Image Area */}
-                <div className="relative w-full h-48 md:h-64 bg-black/20">
+            {/* 1. Header (Custom for this view) */}
+            <div className="flex items-center px-4 py-4 mb-2">
+                <button onClick={onReset} className="p-2 -ml-2 text-gray-800">
+                    <ChevronLeft size={24} />
+                </button>
+                <h1 className="flex-1 text-center text-lg font-bold text-gray-800 mr-8">分析结果</h1>
+            </div>
+
+            {/* 2. Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-6 pb-32">
+
+                {/* Main Image */}
+                <div className="w-full aspect-square rounded-3xl overflow-hidden shadow-sm mb-6 bg-gray-100">
                     <img src={imageUrl} alt="Food" className="w-full h-full object-cover" />
+                </div>
 
-                    {/* Health Score Badge (Floating Top Right) */}
-                    <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-2">
-                        <span className="text-[10px] text-gray-300 uppercase tracking-wider">健康分</span>
-                        <span className={`text-lg font-bold ${data.healthScore >= 7 ? 'text-[var(--primary)]' : data.healthScore >= 5 ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {data.healthScore}
-                        </span>
+                {/* Title & Calories */}
+                <div className="text-center mb-8">
+                    <div className="inline-block bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full mb-3">
+                        AI 识别
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">{data.foodName}</h2>
+                    <div className="flex items-baseline justify-center gap-1">
+                        <span className="text-4xl font-black text-gray-900">{data.calories}</span>
+                        <span className="text-gray-500 font-medium">千卡</span>
                     </div>
                 </div>
 
-                {/* Content Area */}
-                <div className="p-6 flex flex-col gap-4">
-                    <div className="flex flex-col gap-1">
-                        <h2 className="text-2xl md:text-4xl font-black text-white leading-tight">
-                            {data.foodName}
-                        </h2>
-                        {/* Calorie Pill */}
-                        <div
-                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full w-fit mt-2"
-                            style={{
-                                backgroundColor: 'var(--primary)',
-                                color: 'black',
-                                boxShadow: '0 0 20px rgba(157,255,0,0.2)'
-                            }}
-                        >
-                            <Flame className="w-4 h-4 fill-black stroke-black" />
-                            <span className="text-xl font-bold">{data.calories}</span>
-                            <span className="text-xs font-bold opacity-75 pt-[2px]">kcal</span>
-                        </div>
-                    </div>
+                {/* Macros Circles */}
+                <div className="flex justify-between px-4 mb-8">
+                    <MacroCircle label="蛋白质" value={data.macros.protein} color="text-blue-500" borderColor="border-blue-500" />
+                    <MacroCircle label="碳水" value={data.macros.carbs} color="text-green-500" borderColor="border-green-500" />
+                    <MacroCircle label="脂肪" value={data.macros.fat} color="text-yellow-500" borderColor="border-yellow-500" />
                 </div>
+
             </div>
 
-            {/* Macros */}
-            <div className="grid grid-cols-3 gap-4">
-                <MacroPill label="蛋白质" value={data.macros.protein} color="#3b82f6" />
-                <MacroPill label="碳水" value={data.macros.carbs} color="#eab308" />
-                <MacroPill label="脂肪" value={data.macros.fat} color="#ef4444" />
+            {/* 3. Bottom Actions (Fixed) */}
+            <div className="absolute bottom-0 left-0 w-full bg-white border-t border-gray-100 p-6 pb-8 flex gap-4">
+                <button className="flex-1 bg-[var(--primary)] text-white font-bold py-4 rounded-full shadow-lg shadow-green-200 active:scale-95 transition-transform flex items-center justify-center gap-2" onClick={onReset}>
+                    <Save size={20} /> 保存到日志
+                </button>
+                <button onClick={onReset} className="flex-1 bg-gray-100 text-gray-600 font-bold py-4 rounded-full active:scale-95 transition-transform">
+                    重新拍摄
+                </button>
             </div>
-
-            {/* Description */}
-            <div className="glass-panel p-6">
-                <div className="flex items-center gap-2 mb-3 text-gray-300">
-                    <Info className="w-5 h-5" />
-                    <span className="font-bold">AI 营养简评</span>
-                </div>
-                <p className="text-gray-300 leading-relaxed text-lg">
-                    {data.description}
-                </p>
-            </div>
-
-            {/* Recipe */}
-            <div className="glass-panel p-6">
-                <div className="flex items-center gap-2 mb-6 text-[var(--secondary)]">
-                    <Utensils className="w-6 h-6" />
-                    <h3 className="text-xl font-bold m-0">建议做法</h3>
-                </div>
-
-                <div className="mb-6">
-                    <h4 className="text-sm font-bold text-gray-500 uppercase mb-3 tracking-wider">食材准备</h4>
-                    <div className="flex flex-wrap gap-2">
-                        {data.recipe.ingredients.map((ing, i) => (
-                            <span key={i} className="px-3 py-1 bg-white/10 rounded-full text-sm border border-white/10">
-                                {ing}
-                            </span>
-                        ))}
-                    </div>
-                </div>
-
-                <div>
-                    <h4 className="text-sm font-bold text-gray-500 uppercase mb-3 tracking-wider">制作步骤</h4>
-                    <div className="space-y-4">
-                        {data.recipe.steps.map((step, i) => (
-                            <div key={i} className="flex gap-4">
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--primary)] text-black flex items-center justify-center font-bold text-sm mt-1">
-                                    {i + 1}
-                                </div>
-                                <p className="text-gray-300 flex-1 leading-relaxed">{step}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {data.recipe.tips && (
-                    <div className="mt-6 pt-6 border-t border-white/10">
-                        <p className="text-sm text-gray-400 italic">
-                            💡 小贴士: {data.recipe.tips}
-                        </p>
-                    </div>
-                )}
-            </div>
-
-            <button onClick={onReset} className="mx-auto text-gray-500 hover:text-white transition-colors pb-12 flex items-center gap-2">
-                <ChevronsRight className="w-4 h-4" /> 识别下一道菜
-            </button>
 
         </div>
     );
+}
+
+function MacroCircle({ label, value, color, borderColor }: any) {
+    // Extract number for display
+    return (
+        <div className="flex flex-col items-center">
+            <div className={`w-20 h-20 rounded-full border-4 ${borderColor} flex items-center justify-center mb-2 bg-white`}>
+                <div className="text-center">
+                    <span className={`block text-lg font-bold ${color}`}>{parseFloat(value)}</span>
+                    <span className="text-[10px] text-gray-400">克</span>
+                </div>
+            </div>
+            <span className="text-sm font-bold text-gray-600">{label}</span>
+        </div>
+    )
 }

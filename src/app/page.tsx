@@ -1,121 +1,249 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ImageUploader from "@/components/ImageUploader";
 import FoodAnalysis from "@/components/FoodAnalysis";
-import InstallPrompt from "@/components/InstallPrompt"; // Import new component
-import { Sparkles, ScanLine, Skull } from "lucide-react";
+import BottomNav from "@/components/BottomNav";
+import HistoryView from "@/components/HistoryView";
+import ProfileView from "@/components/ProfileView";
+import StatsView from "@/components/StatsView";
+import InstallPrompt from "@/components/InstallPrompt";
+import { AlertTriangle, User as UserIcon, Calendar, Flame } from "lucide-react";
 
 export default function Home() {
+  // --- APP STATE ---
+  const [currentTab, setCurrentTab] = useState("home");
+  const [user, setUser] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
+
+  // --- SCANNER STATE ---
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [image, setImage] = useState<string | null>(null);
 
+  // --- INIT LOAD ---
+  useEffect(() => {
+    const savedUser = localStorage.getItem("cico_user");
+    if (savedUser) setUser(JSON.parse(savedUser));
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      // Load user-specific history if user is logged in
+      const userHistoryKey = `cico_history_${parsedUser.id}`;
+      const savedHistory = localStorage.getItem(userHistoryKey);
+      if (savedHistory) setHistory(JSON.parse(savedHistory));
+    } else {
+      // Load general history for guest users
+      const savedHistory = localStorage.getItem("cico_history");
+      if (savedHistory) setHistory(JSON.parse(savedHistory));
+    }
+  }, []);
+
+  // --- ACTIONS ---
+  const handleLogin = (name: string) => {
+    // 1. Check if user exists in global user list (Simulated DB)
+    const allUsersStr = localStorage.getItem("cico_users_db");
+    let allUsers = allUsersStr ? JSON.parse(allUsersStr) : {};
+
+    let currentUser = allUsers[name];
+
+    if (!currentUser) {
+      // Register new user
+      currentUser = {
+        id: 'user_' + Date.now(),
+        name,
+        joinedAt: new Date().toISOString()
+      };
+      allUsers[name] = currentUser;
+      localStorage.setItem("cico_users_db", JSON.stringify(allUsers));
+    }
+
+    // 2. Set Session
+    setUser(currentUser);
+    localStorage.setItem("cico_user", JSON.stringify(currentUser));
+
+    // 3. Load User's specific history
+    const userHistoryKey = `cico_history_${currentUser.id}`;
+    const savedHistory = localStorage.getItem(userHistoryKey);
+    setHistory(savedHistory ? JSON.parse(savedHistory) : []);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem("cico_user");
+
+    // Clear history from view (or load guest history)
+    setHistory([]);
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+    const key = user ? `cico_history_${user.id}` : "cico_history";
+    localStorage.removeItem(key);
+  };
+
+  // Helper to compress image for storage
+  const compressImage = (base64Str: string, maxWidth = 100, quality = 0.5): Promise<string> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined') {
+        resolve(base64Str);
+        return;
+      }
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scaleSize = maxWidth / img.width;
+        canvas.width = maxWidth;
+        canvas.height = img.height * scaleSize;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => resolve(""); // Fallback
+    });
+  };
+
   const handleImageSelected = async (base64: string, mimeType: string) => {
     setImage(base64);
     setLoading(true);
     setError(null);
-
     try {
       const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          image: base64,
-          mimeType: mimeType,
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: base64, mimeType: mimeType }),
       });
-
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Analysis failed");
-      }
+      if (!response.ok) throw new Error(data.error || "Analysis failed");
 
       if (data.error === "NOT_FOOD") {
-        setError("这看起来不像食物！请拍摄真正的美食 🍔");
+        setError("这看起来不像食物！");
         setAnalysis(null);
       } else {
         setAnalysis(data);
+
+        // Compress thumbnail for storage
+        const thumbnail = await compressImage(base64);
+
+        const newHistoryItem = {
+          id: Date.now().toString(),
+          foodName: data.foodName,
+          calories: data.calories,
+          macros: data.macros,
+          date: new Date().toLocaleDateString(),
+          imageUrl: thumbnail,
+        };
+        const updatedHistory = [newHistoryItem, ...history];
+        setHistory(updatedHistory);
+
+        try {
+          // Save to COMPARTMENTALIZED storage
+          const key = user ? `cico_history_${user.id}` : "cico_history";
+          localStorage.setItem(key, JSON.stringify(updatedHistory));
+        } catch (e) {
+          console.error("Storage full", e);
+        }
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Something went wrong during analysis.");
+      setError(err.message || "Error");
     } finally {
       setLoading(false);
     }
   };
 
-  const reset = () => {
-    setAnalysis(null);
-    setImage(null);
-    setError(null);
+  const resetScanner = () => { setAnalysis(null); setImage(null); setError(null); };
+
+  // --- RENDER HELPERS ---
+  const renderHome = () => {
+    // Calculate daily stats (mock)
+    const dailyCal = history.reduce((acc, curr) => acc + (parseInt(curr.calories) || 0), 0);
+    const targetCal = 2000;
+    const percent = Math.min((dailyCal / targetCal) * 100, 100);
+
+    // If viewing analysis result
+    if (image && analysis) {
+      return <FoodAnalysis data={analysis} imageUrl={image} onReset={resetScanner} />;
+    }
+
+    // Normal Home Dashboard
+    return (
+      <div className="flex flex-col h-full px-6 pt-8 pb-32 animate-fade-in">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-xl font-bold text-gray-800">BRIGHT Food Scan</h1>
+          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+            <UserIcon size={16} />
+          </div>
+        </div>
+
+        {/* Image Uploader (Big Button) */}
+        <div className="flex-1 flex flex-col justify-center items-center mb-8">
+          <div className="scale-110">
+            <ImageUploader onImageSelected={handleImageSelected} isAnalyzing={loading} />
+          </div>
+          {error && <p className="text-red-500 text-sm mt-4 font-bold">{error}</p>}
+        </div>
+
+        {/* Daily Card */}
+        <div className="bg-white rounded-3xl p-6 card-shadow border border-gray-100">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar size={18} className="text-gray-400" />
+            <span className="text-sm font-bold text-gray-700">今日进度</span>
+          </div>
+
+          <div className="flex justify-between items-end mb-2">
+            <span className="text-xs text-gray-500">摄入热量</span>
+            <div>
+              <span className="text-2xl font-black text-gray-900">{dailyCal}</span>
+              <span className="text-xs text-gray-400 ml-1">/ {targetCal} 千卡</span>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[var(--primary)] rounded-full transition-all duration-1000"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+
+        <InstallPrompt />
+      </div>
+    );
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center p-6 md:p-12 relative overflow-hidden">
+    <main className="min-h-screen bg-[#F5F7FA] text-gray-900 relative flex flex-col font-sans overflow-hidden">
 
+      {/* BACKGROUND DECORATION (Subtle Green Blob) */}
+      <div className="fixed top-[-20%] right-[-20%] w-[500px] h-[500px] bg-green-200/20 blur-[100px] rounded-full pointer-events-none" />
 
-
-      {/* Background Decor */}
-      <div className="absolute top-0 left-0 w-full h-[500px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/40 via-[#0a0a0a] to-[#0a0a0a] pointer-events-none" />
-
-      {/* Header */}
-      <header className="z-10 flex flex-col items-center mb-12 text-center animate-float">
-        <div className="flex items-center gap-2 mb-4 px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm">
-          <Sparkles className="w-4 h-4 text-[var(--primary)]" />
-          <span className="text-sm font-medium tracking-wide text-gray-300">AI Powered Nutritionist</span>
-        </div>
-        <div className="mb-4">
-          <h1 className="text-2xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60 flex flex-wrap justify-center gap-x-2">
-            <span>BRIGHT305</span>
-            <span className="text-[var(--primary)]">卡路里识别</span>
-          </h1>
-        </div>
-        <p className="max-w-md text-gray-400 text-lg">
-          只需一张照片，立刻获取热量数据、营养成分与专属食谱。
-        </p>
-      </header>
-
-      {/* Main Content Area */}
-      <div className="z-10 w-full flex flex-col items-center transition-all duration-500 ease-in-out">
-
-        {error && (
-          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200">
-            <Skull className="w-5 h-5" />
-            <span>{error}</span>
-            <button onClick={reset} className="ml-4 underline text-sm hover:text-white">重试</button>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="glass-panel p-12 flex flex-col items-center animate-pulse">
-            <ScanLine className="w-16 h-16 text-[var(--primary)] animate-bounce mb-6" />
-            <h3 className="text-2xl font-bold mb-2">正在分析美食成分...</h3>
-            <p className="text-gray-400">正在计算卡路里并生成食谱</p>
-          </div>
-        ) : analysis ? (
-          <FoodAnalysis
-            data={analysis}
-            imageUrl={image!}
-            onReset={reset}
-          />
-        ) : (
-          <ImageUploader
-            onImageSelected={handleImageSelected}
-            isAnalyzing={loading}
+      {/* CONTENT AREA */}
+      <div className="flex-1 overflow-y-auto w-full max-w-md mx-auto relative z-10">
+        {currentTab === "home" && renderHome()}
+        {currentTab === "history" && <HistoryView history={history} onClear={clearHistory} />}
+        {currentTab === "profile" && (
+          <ProfileView
+            user={user}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            stats={{
+              totalScans: history.length,
+              totalCalories: history.reduce((acc, curr) => acc + (parseInt(curr.calories) || 0), 0)
+            }}
           />
         )}
-
+        {currentTab === "stats" && <StatsView history={history} />}
       </div>
 
-      <footer className="mt-auto pt-12 text-gray-600 text-sm flex flex-col items-center gap-4">
-        <span>BY BRIGHT(GEMINI)</span>
-        <InstallPrompt />
-      </footer>
+      {/* BOTTOM NAVIGATION (Only hide when viewing analysis result) */}
+      {!(image && analysis) && (
+        <BottomNav currentTab={currentTab} onTabChange={setCurrentTab} />
+      )}
+
     </main>
   );
 }
