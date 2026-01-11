@@ -4,8 +4,8 @@ import OpenAI from "openai";
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    const baseUrl = process.env.GEMINI_BASE_URL;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+    const baseUrl = process.env.GEMINI_BASE_URL || process.env.EXPO_PUBLIC_GEMINI_BASE_URL;
 
     if (!apiKey) {
       return NextResponse.json({ error: "Missing API Key" }, { status: 500 });
