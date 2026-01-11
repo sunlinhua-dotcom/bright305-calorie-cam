@@ -70,3 +70,32 @@ If you want to host it on your own server:
     npm i -g pm2
     pm2 start npm --name "cico-app" -- start
     ```
+
+---
+
+# Deploying to Zeabur (Alternative)
+
+If you prefer using [Zeabur](https://zeabur.com/), follow these steps (Optimized for port 8080):
+
+1.  **Preparation**:
+    - Ensure the `Dockerfile` in the root directory is present (I have already created this for you).
+    - Push your latest code to GitHub.
+
+2.  **Deploy**:
+    - Go to Zeabur Dashboard.
+    - Create a new project.
+    - Click "Deploy New Service" -> "GitHub".
+    - Select your repository (`bright305-calorie-cam`).
+
+3.  **Configuration**:
+    - Zeabur should automatically detect the `Dockerfile`.
+    - Go to **Service** -> **Settings** -> **Environment Variables**.
+    - Add your Environment Variables:
+        - `GEMINI_API_KEY`
+        - `GEMINI_BASE_URL`
+
+4.  **Networking**:
+    - Go to **Networking** tab.
+    - Click "Generate Domain" or bind your own.
+    - Zeabur will automatically route traffic to port 8080.
+
