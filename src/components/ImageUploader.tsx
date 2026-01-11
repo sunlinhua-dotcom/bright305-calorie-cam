@@ -2,20 +2,34 @@ import React, { useRef } from "react";
 import { Camera, Zap } from "lucide-react";
 
 interface ImageUploaderProps {
-    onImageSelected: (base64: string, mimeType: string) => void;
+    onImagesSelected: (images: { base64: string; mimeType: string }[]) => void;
     isAnalyzing: boolean;
 }
 
-export default function ImageUploader({ onImageSelected, isAnalyzing }: ImageUploaderProps) {
+export default function ImageUploader({ onImagesSelected, isAnalyzing }: ImageUploaderProps) {
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const handleFile = (file: File) => {
-        if (file && file.type.startsWith("image/")) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                onImageSelected(reader.result as string, file.type);
-            };
-            reader.readAsDataURL(file);
+    const handleFiles = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+
+        const promises = Array.from(files)
+            .filter(file => file.type.startsWith("image/"))
+            .map(file => {
+                return new Promise<{ base64: string; mimeType: string }>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        resolve({
+                            base64: reader.result as string,
+                            mimeType: file.type
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+
+        const results = await Promise.all(promises);
+        if (results.length > 0) {
+            onImagesSelected(results);
         }
     };
 
@@ -28,8 +42,9 @@ export default function ImageUploader({ onImageSelected, isAnalyzing }: ImageUpl
                 ref={inputRef}
                 type="file"
                 accept="image/*"
+                multiple // Enable multiple selection
                 className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+                onChange={(e) => handleFiles(e.target.files)}
             />
 
             {/* Outer Ring Glow */}
